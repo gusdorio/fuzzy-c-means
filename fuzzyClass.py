@@ -9,9 +9,9 @@ class FuzzyCMeans:
         self.m = m  # Fuzziness parameter
         self.tol = tol
         self.random_state = random_state
-        self.cluster_centers_ = None
         self.U = None  # Membership matrix
         self.n_samples, _ = self.X.shape
+        self.samples_dict = {}
         self._initialize_membership_matrix()
     
     def _initialize_membership_matrix(self):
@@ -31,16 +31,21 @@ class FuzzyCMeans:
         parameters: None --> it's a holder initializing the cluster centers
         '''
         um = self.U ** self.m  # Compute U^m (degree of membership raised to fuzziness parameter)
-        return (um.T @ self.X) / np.sum(um, axis=0, keepdims=True).T  # Formula for cluster centers
+        centroids = (um.T @ self.X) / np.sum(um, axis=0, keepdims=True).T  # Formula for cluster centers
+        return centroids # Returns a matrix of the centroid for each cluster
     
-    def _update_membership_matrix(self):
+    def _update_membership_matrix(self, centroids):
         '''
-        Initialize the membership matrix randomly and normalize it.
+        Makes the distance calculation between each xi for each vk, them updates membership.
         
-        parameters: None --> it's a holder initializing the membership matrix
+        parameters: 
+                - centroids: the cluster centers to be used to update the membership matrix
         '''
-        dist = np.linalg.norm(self.X[:, np.newaxis] - self.cluster_centers_, axis=2)  # Compute Euclidean distances
+
+        # Compute Euclidean distance for each Uij
+        dist = np.linalg.norm(self.X[:, np.newaxis] - centroids, axis=2)  # Compute Euclidean distances
         dist = np.fmax(dist, np.finfo(np.float64).eps)  # Avoid division by zero
+        # print(dist)
         power = -2 / (self.m - 1)
         
         # Compute new U using the formula:
@@ -52,33 +57,54 @@ class FuzzyCMeans:
         '''
         Fit the Fuzzy C-Means model to the data.
 
-        parameters: None --> it's a holder for the fit and predict mothods
+        parameters: None --> it's a holder for the fit and predict methods
         Uses the formula application on the data to fit the model
         '''
-        for _ in range(self.max_iter):
+        for i in range(self.max_iter):
             prev_U = self.U.copy()
-            self.cluster_centers_ = self._compute_cluster_centers()
-            self.U = self._update_membership_matrix()
-            
+            centroids = self._compute_cluster_centers()
+            self.U = self._update_membership_matrix(centroids)
+
             # Check convergence (difference between old and new U is below tolerance)
+            diff = np.linalg.norm(self.U - prev_U, ord='fro')
+            # print(f"Iteration {i}, difference = {diff}")                              # For comparing, if needed...
+        
             if np.linalg.norm(self.U - prev_U) < self.tol:
+                print(f"The configured tolerance for convergence was reached... (dif value: {self.tol})")
+                print(f"Number of iterations: {i}")
                 break
+
+        print(f"The maximum convergence reached was: {diff}")
     
     def predict(self):
         '''
         Predict the cluster assignments for the data.
 
-        parameters: None --> it's a holder for the fit and predict mothods
+        **NEEDS BETTER DEFINITION...
+
+        parameters: None --> it's a holder for the fit and predict methods
         '''
+
         return np.argmax(self.U, axis=1)  # Assign each point to the cluster with highest membership
     
-    def fit_predict(self):
+    def generate_pertinence(self):
         '''
         Function to be called on the program to algorithm application
         '''
 
-        '''
-        Make it return the pertinences of the samples to the clusters periodically
-        '''
         self.fit()
-        return self.predict()
+
+        # Generates the pertinence dict
+        xi_n = 0
+        for sample in self.U:
+            xi_n += 1
+            sample_dict = {}   # Initialize the dictionary for each sample
+            k_n = 0
+            for sample_k in sample:
+                k_n += 1
+                sample_dict[f"k{k_n}"] = sample_k
+            self.samples_dict[f"x{xi_n}"] = sample_dict   # Assign the accumulated dictionary to the sample key
+
+        print("\n")
+        print("Application > To see pertinence, simple call self.samples_dict or choose your desired sample.")
+        
