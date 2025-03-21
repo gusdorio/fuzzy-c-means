@@ -16,7 +16,6 @@ class FuzzyCMeans:
         self.n_samples, _ = self.X.shape
         self.fitted = False  # Track if model has been fitted
         self._initialize_membership_matrix()
-        self._initialize_cluster_centers()
     
     def _initialize_membership_matrix(self):
         np.random.seed(self.random_state)
@@ -38,7 +37,7 @@ class FuzzyCMeans:
     def _update_membership_matrix(self):
         dist = np.linalg.norm(self.X[:, np.newaxis] - self.cluster_centers_, axis=2)  # Euclidean distances
         dist = np.fmax(dist, np.finfo(np.float64).eps)  # Avoid division by zero
-        power = -2 / (self.m - 1)
+        power = 2 / (self.m - 1)
         U_new = 1 / np.sum((dist[:, :, np.newaxis] / dist[:, np.newaxis, :]) ** power, axis=2)
         return U_new
     
